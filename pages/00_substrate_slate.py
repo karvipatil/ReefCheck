@@ -9,7 +9,7 @@ from PIL import Image
 import uuid
 from s3_utils import upload_to_s3, upload_bucket_path
 from db_utils import adding_record
-
+from utils import load_and_prepare_excel_for_substrate
 
 # taking environment variables
 os.environ['ENV'] = st.secrets["aws"]["ENV"]
@@ -136,15 +136,18 @@ def substrate_slate():
             if not download_capability:
                 st.error("Upload failed.")
                 st.stop()
-            #if st.download_buttonn(
-                #label="Download as Excel",
-                #data=load_and_prepare_excel_for_substrate(save_excel_name),
-                #file_name=save_excel_name,
-                #mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-               # on_click='ignore'
-            #)
-        
+            
 
+            st.download_button(
+                label="Download as Excel",
+                data=load_and_prepare_excel_for_substrate(save_excel_name),
+                file_name=save_excel_name,
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                on_click="ignore"
+            )
+                
+            
+                
 if __name__ == "__main__":
     substrate_slate()
 
