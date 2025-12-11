@@ -2,7 +2,16 @@ from PIL import Image, ExifTags
 import pandas as pd
 from collections import defaultdict
 import xlsxwriter 
+from openpyxl import load_workbook
+from io import BytesIO
 
+
+def load_and_prepare_excel_for_substrate(excel_name: str):
+    workbook = load_workbook(excel_name)
+    with BytesIO() as buffer:
+        workbook.save(buffer)
+        buffer.seek(0)
+        return buffer.getvalue()
 
 def handle_image_orientation(image):
 
