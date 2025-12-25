@@ -6,7 +6,7 @@ import base64
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 import streamlit as st
 
-from prompt import SUBSTRATE_SLATE_IMAGE_INSTRUCTIONS
+from prompt import SUBSTRATE_SLATE_IMAGE_INSTRUCTIONS, FISH_SLATE_IMAGE_INSTRUCTIONS
 
 
 # importing secrets from secrets.toml
@@ -59,6 +59,24 @@ def create_image_labels(image_path: str, human_prompt: str = SUBSTRATE_SLATE_IMA
   # invoke the llm to generate a query
   invoke_image_query = structured_llm.invoke([message])
   return invoke_image_query
+
+def create_fish_slate_labels(image_path: str, human_prompt: str = FISH_SLATE_IMAGE_INSTRUCTIONS):
+  image_data = encode_image(image_path)
+  message = HumanMessage(
+        content=[
+            {"type": "text", "text": human_prompt},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{image_data}"},
+            },
+        ],
+    )
+  # create a structured output
+  structured_llm = llm.with_structured_output(SegmentationLabels)
+  # invoke the llm to generate a query
+  invoke_image_query = structured_llm.invoke([message])
+  return invoke_image_query
+
 
 
 

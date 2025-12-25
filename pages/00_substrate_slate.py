@@ -84,14 +84,13 @@ def substrate_slate():
                 st.toast("Your edited image was saved!", icon="😍")
                 substrate_dataframe = create_substrate_dataframe(substrate_labels.model_dump(), SUBSTRATE_CSV)
                 st.session_state.substrate_dataframe = substrate_dataframe
-
-        try:
-            st.sidebar.image(st.session_state.image, caption="User uploaded substrate image")
-        except Exception as error:
-            print(str(error))
-            st.error("We couldn't display your image!")
-            st.stop()
-        
+        # try:
+        #     st.sidebar.image(st.session_state.image, caption="User uploaded substrate image")
+        # except Exception as error:
+        #     print(str(error))
+        #     st.error("We couldn't display your image!")
+        #     st.stop()
+        st.success("ACSHD")
 
        # st.dataframe(st.session_state.substrate_dataframe)
         edited_dataframe = st.data_editor(st.session_state.substrate_dataframe, on_change = user_editable_dataframe)
@@ -129,7 +128,7 @@ def substrate_slate():
                     st.toast("db_response")
                     db_response = adding_record(DB_TABLE_NAME, data_id, st.user["sub"], st.user["name"], image_url, excel_url, "success")  
                     print(db_response)           
-                    if db_response["Success"]:
+                    if db_response["success"]:
                         st.toss("Record Saved")
                     else:
                         download_capability = False

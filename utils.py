@@ -226,13 +226,124 @@ def create_substrate_excel_file(substrate_dict: dict, excel_file_name: str):
     row += 1
   workbook.close()
 
+def create_fish_slate_dataframe(response_data: dict, csv_name: str) -> pd.DataFrame:
+    distances = ["0-20m", "25-45m", "50-70m", "75-95m"]
+    main_keys = list(response_data.keys())
+
+    information_df = pd.concat([pd.DataFrame.from_dict(response_data[key_]) for key_ in main_keys])
+    new_columns = []
+    new_columns.append("name")
+
+    for distance_idx in range(len(distances)):
+        new_columns.extend([distances[distance_idx], "set_{}_clear".format(distance_idx)])
+    information_df.columns = new_columns
+    information_df.to_csv(csv_name, index=False)
+    return information_df
 
 
+def extract_fish_details(fish_details: list) -> list:
+    total_records = []
+    for record_ in fish_details:
+        sample_dict = {}
+        sample_dict["name"] = record_["name"]
+        sample_dict["distance_one"] = record_["0 - 20m"]
+        sample_dict["distance_one_clear"] = record_["set_0_clear"]
+        sample_dict["distance_two"] = record_["25 - 45m"]
+        sample_dict["distance_two_clear"] = record_["set_1_clear"]
+        sample_dict["distance_three"] = record_["50 - 75m"]
+        sample_dict["distance_three_clear"] = record_["set_2_clear"]
+        sample_dict["distance_four"] = record_["75 - 95m"]
+        sample_dict["distance_four_clear"] = record_["set_3_clear"]
+        total_records.append(sample_dict)
+    return total_records
 
 
+def extract_fish_data_from_dataframe(data: pd.DataFrame) -> dict:
+    # get data records
+    records = data.to_dict(orient='records')
+    annots = defaultdict(list)
+    # original records
+    fish_records = records[: 12]
+    invertebrates_records = records[12: 26]
+    impacts_records = records[26: 33]
+    coral_disease_records = records[33: 35]
+    rare_animals_records = records[35: 39]
+    # processed records
+    process_dict = {
+        "fish": fish_records,
+        "invertebrates": invertebrates_records,
+        "impacts": impacts_records,
+        "coral_disease": coral_disease_records,
+        "rare_animals": rare_animals_records
+    }
+    for key_ in process_dict.keys():
+        annots[key_].extend(extract_fish_details(process_dict[key_]))
+    return dict(annots)
 
+def create_fish_slate_excel_file(response_data: dict, excel_name: str):
+    data_list = []
+    response_keys = list(response_data.keys())
+    for key_ in response_keys:
+        data_list.extend(response_data[key_])
+    
+    workbook = xlsxwriter.Workbook(excel_name)
+    worksheet = workbook.add_worksheet()
 
+     # bolding the borders of cells
+    bold = workbook.add_format({"bold": True, "border": True, "center_across": True})
+    # making the background red for unclear labels
+    not_clear = workbook.add_format({"bold": True, "bg_color": "red", "border": True})
+    # adding borders for cells
+    borders = workbook.add_format({"border": True})
 
+    # adjusting the columns
+    worksheet.merge_range("A1:E1", "Fish Slate Data", bold)
+  
+    # distances
+    worksheet.write("B2",  "0 - 20 m", bold)
+    worksheet.write("B11", "0 - 20 m", bold)
+    worksheet.write("B17", "0 - 20 m", bold)
+    worksheet.write("B26", "0 - 20 m", bold)
+    worksheet.write("B34", "0 - 20 m", bold)
+    worksheet.write("B43", "0 - 20 m", bold)
+    worksheet.write("B46", "0 - 20 m", bold)
+
+    # Column C
+    worksheet.write("C2",  "25 - 45 m", bold)
+    worksheet.write("C11", "25 - 45 m", bold)
+    worksheet.write("C17", "25 - 45 m", bold)
+    worksheet.write("C26", "25 - 45 m", bold)
+    worksheet.write("C34", "25 - 45 m", bold)
+    worksheet.write("C43", "25 - 45 m", bold)
+    worksheet.write("C46", "25 - 45 m", bold)
+
+    # Column D
+    worksheet.write("D2",  "50 - 70 m", bold)
+    worksheet.write("D11", "50 - 70 m", bold)
+    worksheet.write("D17", "50 - 70 m", bold)
+    worksheet.write("D26", "50 - 70 m", bold)
+    worksheet.write("D34", "50 - 70 m", bold)
+    worksheet.write("D43", "50 - 70 m", bold)
+    worksheet.write("D46", "50 - 70 m", bold)
+
+    # Column E
+    worksheet.write("E2",  "75 - 95 m", bold)
+    worksheet.write("E11", "75 - 95 m", bold)
+    worksheet.write("E17", "75 - 95 m", bold)
+    worksheet.write("E26", "75 - 95 m", bold)
+    worksheet.write("E34", "75 - 95 m", bold)
+    worksheet.write("E43", "75 - 95 m", bold)
+    worksheet.write("E46", "75 - 95 m", bold)
+
+    # Need to add the columns & data input
+    workbook.close()
+
+def load_and_prepare_excel_for_fish_slate(excel_name: str):
+    workbook = load_workbook(excel_name)
+    with BytesIO() as buffer:
+        workbook.save(buffer)
+        buffer.seek(0)
+        return buffer.getvalue()
 
 
 

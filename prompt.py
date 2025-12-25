@@ -71,3 +71,59 @@ List the distance values as "distance", substrate symbols as "label", and label_
 
 
 """
+
+FISH_SLATE_IMAGE_INSTRUCTIONS = """
+You are given an image of an underwater survey slate used for reef monitoring.
+
+There are different table sections, extract information for each one.
+
+Task:
+
+Extract the row labels (fish species names).
+
+Extract the column labels, which represent distance/depth ranges.
+
+Output the result as a structured table (JSON object).
+
+Details:
+
+Rows correspond to fish species listed on the left.
+
+Columns correspond to the distance ranges shown across the top (e.g., 0–20 m, 25–45 m, 50–70 m, 75–95 m).
+
+If cells contain handwritten numbers or circles, include those values as the cell entries.
+
+If a cell is empty, return null.
+
+Output format (JSON):
+
+{
+  "columns": ["0-20m", "25-45m", "50-70m", "75-95m"],
+  "rows": [
+    {
+      "fish": "Butterflyfish (Chaetodontidae)",
+      "0-20m": value,
+      "25-45m": value,
+      "50-70m": value,
+      "75-95m": value
+    }
+  ]
+}
+
+
+Only extract information that is clearly visible in the image. Do not infer or guess missing data.
+
+"""
+
+
+
+
+
+
+
+
+
+
+
+
+
