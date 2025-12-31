@@ -67,7 +67,7 @@ def substrate_slate():
     uploaded_substrate = st.file_uploader("Choose a file", 
                                           type=["jpg", "jpeg", "png"],
                                           key="substrate_uploader",
-                                          on_change= user_off_editable_dataframe()
+                                          on_change= user_off_editable_dataframe
                                           )
     
     # save the uploaded substrate in session_state
@@ -84,13 +84,13 @@ def substrate_slate():
                 st.toast("Your edited image was saved!", icon="😍")
                 substrate_dataframe = create_substrate_dataframe(substrate_labels.model_dump(), SUBSTRATE_CSV)
                 st.session_state.substrate_dataframe = substrate_dataframe
-        # try:
-        #     st.sidebar.image(st.session_state.image, caption="User uploaded substrate image")
-        # except Exception as error:
-        #     print(str(error))
-        #     st.error("We couldn't display your image!")
-        #     st.stop()
-        st.success("ACSHD")
+        try:
+            st.sidebar.image(st.session_state.image, caption="User uploaded substrate image")
+        except Exception as error:
+            print(str(error))
+            st.error("We couldn't display your image!")
+            st.stop()
+        
 
        # st.dataframe(st.session_state.substrate_dataframe)
         edited_dataframe = st.data_editor(st.session_state.substrate_dataframe, on_change = user_editable_dataframe)
@@ -114,22 +114,21 @@ def substrate_slate():
                 # save excel files
                 excel_url = upload_to_s3(save_excel_name, upload_bucket_path(st.user["name"], st.user["sub"], "excel", "substrate", f"{data_id}_{file_name}") )
                 if excel_url:
-                    st.toast("Excel uploading is complete!")
+                    st.toast("Excel uploading is complete!", icon="🟩")
                 else:
                     download_capability = False
                 # save image files
                 image_url = upload_to_s3(SUBSTRATE_IMAGE, upload_bucket_path(st.user["name"], st.user["sub"], "image", "substrate", f"{data_id}_{file_name}") )
                 if image_url:
-                    st.toast("Image uploading is complete!")
+                    st.toast("Image uploading is complete!", icon="🟢")
                 else:
                     download_capability = False
                 # add record
                 if download_capability:
-                    st.toast("db_response")
                     db_response = adding_record(DB_TABLE_NAME, data_id, st.user["sub"], st.user["name"], image_url, excel_url, "success")  
                     print(db_response)           
                     if db_response["success"]:
-                        st.toss("Record Saved")
+                        st.toast("Record Saved", icon="✅")
                     else:
                         download_capability = False
             if not download_capability:
