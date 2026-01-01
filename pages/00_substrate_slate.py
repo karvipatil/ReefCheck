@@ -87,7 +87,6 @@ def substrate_slate():
         try:
             st.sidebar.image(st.session_state.image, caption="User uploaded substrate image")
         except Exception as error:
-            print(str(error))
             st.error("We couldn't display your image!")
             st.stop()
         
