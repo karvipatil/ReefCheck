@@ -59,7 +59,7 @@ def file_name_input():
 def substrate_slate():
     if not st.user.is_logged_in:
         st.error("Please log in.")
-        return
+        st.stop()
 
         
     st.header("Substrate Slate")
