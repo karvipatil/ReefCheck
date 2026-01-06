@@ -13,47 +13,82 @@ def load_and_prepare_excel_for_substrate(excel_name: str):
         buffer.seek(0)
         return buffer.getvalue()
 
-def handle_image_orientation(image):
+# def handle_image_orientation(image):
 
-    """
+#     """
 
-    Handling image orientation
+#     Handling image orientation
     
-    Arguments:
-        image: PIL image
+#     Arguments:
+#         image: PIL image
 
-    Outputs:
-        image: oriented PIL image
+#     Outputs:
+#         image: oriented PIL image
 
+#     """
+
+#     try:
+#         # checks orientation of image, otherwise jumps out
+#         for orientation in ExifTags.TAGS.keys():
+#             if ExifTags.TAGS[orientation] == 'Orientation':
+#                 break
+#         # gets numeric info about orientation
+#         exif = dict(image._getexif().items())
+
+#         if exif[orientation] == 3:
+#             image = image.rotate(180, expand=True)
+
+#         elif exif[orientation] == 6:
+#             image = image.rotate(270, expand=True)
+
+#         elif exif[orientation] == 8:
+#             image = image.rotate(90, expand=True)
+
+#     except (AttributeError, KeyError, IndexError):
+
+#         print("Image does not have exif data")
+#         # cases: image don't have exif data
+#         pass
+
+#     return image
+
+
+    # Image utilities
+
+def handle_image_orientation(image: Image.Image) -> Image.Image:
     """
-
+    Handle image orientation based on EXIF data.
+    If the image has no EXIF or orientation info, it returns the image as-is.
+    """
     try:
-        # checks orientation of image, otherwise jumps out
-        for orientation in ExifTags.TAGS.keys():
-            if ExifTags.TAGS[orientation] == 'Orientation':
-                break
-        # gets numeric info about orientation
-        exif = dict(image._getexif().items())
+        exif = image._getexif()
+        if exif is None:
+            # No EXIF data, just return the image
+            print("** no exif")
+            return image
 
-        if exif[orientation] == 3:
+        # Find the orientation tag
+        orientation_key = next((k for k, v in ExifTags.TAGS.items() if v == "Orientation"), None)
+        if orientation_key is None or orientation_key not in exif:
+            return image
+
+        orientation = exif.get(orientation_key, 1) if exif else 1
+
+        # Rotate based on orientation
+        if orientation == 3:
             image = image.rotate(180, expand=True)
-
-        elif exif[orientation] == 6:
+        elif orientation == 6:
             image = image.rotate(270, expand=True)
-
-        elif exif[orientation] == 8:
+        elif orientation == 8:
             image = image.rotate(90, expand=True)
 
-    except (AttributeError, KeyError, IndexError):
-
-        print("Image does not have exif data")
-        # cases: image don't have exif data
+    except Exception as e:
+        # If anything goes wrong, just return the image
+        print(f"Failed to handle EXIF orientation: {e}")
         pass
 
     return image
 
-
-    # Image utilities
 
 
 # substrate analysis
