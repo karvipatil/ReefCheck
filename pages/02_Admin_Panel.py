@@ -2,6 +2,7 @@ import streamlit as st
 import os
 from datetime import time
 from db_utils import getting_records
+from visualization import displaying_loaded_analytics
 
 
 
@@ -51,8 +52,10 @@ with st.spinner("Loading..."):
 if data_records["success"]: 
     if data_records["data"] is not None and not data_records["data"].empty:
         st.toast("✅ Data has been saved")
-        # display analytics dashboard
-        # displaying_loaded_analytics()
+        #display analytics dashboard
+
+        displaying_loaded_analytics(data_records['data'], days=week_slider)
+        
     else:
         st.error("❌ No recent uploads found in the given range.")
 else:
