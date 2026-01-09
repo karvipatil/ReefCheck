@@ -48,6 +48,7 @@ st.title("ReefCheck Admin Dashboard")
 
 with st.spinner("Loading..."):
     data_records = getting_records(DB_TABLE_NAME, days=week_slider)
+    print(data_records)
 
 if data_records["success"]: 
     if data_records["data"] is not None and not data_records["data"].empty:

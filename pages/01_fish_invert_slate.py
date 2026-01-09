@@ -52,13 +52,11 @@ def save_button():
 def file_name_input():
     st.session_state.fish_invert_file_name = True
 
-# def save_uploaded_image(image, target_name):
-#     img_byte_arr = io.BytesIO()
-#     image.save(img_byte_arr, format='JPEG')
-#     img_byte_arr = img_byte_arr.getvalue()
-#     image.save(target_name)
 def save_uploaded_image(image, target_name):
-    image.save(target_name) 
+    img_byte_arr = io.BytesIO()
+    image.save(img_byte_arr, format='JPEG')
+    img_byte_arr = img_byte_arr.getvalue()
+    image.save(target_name)
 
 def fish_invert_slate():
     if not st.user.is_logged_in:
@@ -78,13 +76,11 @@ def fish_invert_slate():
         if not st.session_state.fish_dataframe and not st.session_state.fish_invert_button and not st.session_state.fish_invert_file_name:
             # store copy of the fish slate in session_state
             image = handle_image_orientation(Image.open(uploaded_fish_slate))
-            print(image)
             st.session_state.fish_invert_image = image
             save_uploaded_image(image, FISH_INVERT_IMAGE) 
 
             with st.spinner("Generating Fish Slate Labels", show_time=True):
                 fish_slate_labels = create_fish_slate_labels(FISH_INVERT_IMAGE)
-                st.stop()
                 st.toast("Your edited fish image was saved!", icon="😍")
                 fish_dataframe = create_fish_slate_dataframe(fish_slate_labels.model_dump(), FISH_INVERT_CSV)
                 st.session_state.fish_invert_dataframe = fish_dataframe
@@ -97,7 +93,7 @@ def fish_invert_slate():
     
 
     # st.dataframe(st.session_state.fish_slate_dataframe)
-        edited_fish_dataframe = st.data_editor(st.session_state.substrate_dataframe, on_change = user_editable_dataframe)
+        edited_fish_dataframe = st.data_editor(st.session_state.fish_invert_dataframe, on_change = user_editable_dataframe)
 
         fish_file_name = st.text_input("File Name to be Saved", value=None, on_change=file_name_input)
         if not fish_file_name:

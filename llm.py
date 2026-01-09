@@ -29,11 +29,29 @@ class LabelRecordings(BaseModel):
   label: str
   label_status: bool
 
+class LabelRecordingsFishInvert(BaseModel):
+    name: str = Field(None, description = "Species Name")
+    distance_one: int
+    distance_one_clear: bool 
+    distance_two: int 
+    distance_two_clear: bool 
+    distance_three: int 
+    distance_three_clear: bool 
+    distance_four: int 
+    distance_four_clear: bool
+
 class SegmentationLabels(BaseModel):
   segment_one: List[LabelRecordings]
   segment_two: List[LabelRecordings]
   segment_three: List[LabelRecordings]
   segment_four: List[LabelRecordings]
+
+class SegmentationLabelsFishInvert(BaseModel):
+    fish: List[LabelRecordingsFishInvert]
+    invertebrates: List[LabelRecordingsFishInvert]
+    impacts: List[LabelRecordingsFishInvert]
+    coral_disease: List[LabelRecordingsFishInvert]
+    rare_animals: List[LabelRecordingsFishInvert]
 
 
 # converting image to base64
@@ -72,7 +90,7 @@ def create_fish_slate_labels(image_path: str, human_prompt: str = FISH_SLATE_IMA
         ],
     )
   # create a structured output
-  structured_llm = llm.with_structured_output(SegmentationLabels)
+  structured_llm = llm.with_structured_output(SegmentationLabelsFishInvert)
   # invoke the llm to generate a query
   invoke_image_query = structured_llm.invoke([message])
   return invoke_image_query

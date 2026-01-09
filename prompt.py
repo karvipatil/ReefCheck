@@ -72,51 +72,76 @@ List the distance values as "distance", substrate symbols as "label", and label_
 
 """
 
+# FISH_SLATE_IMAGE_INSTRUCTIONS = """
+# You are given an image of an underwater survey slate used for reef monitoring.
+
+# There are different table sections, extract information for each one.
+
+# Task:
+
+# Extract the row labels (fish species names).
+
+# Extract the column labels, which represent distance/depth ranges.
+
+# Output the result as a structured table (JSON object).
+
+# Details:
+
+# Rows correspond to fish species listed on the left.
+
+# Columns correspond to the distance ranges shown across the top (e.g., 0–20 m, 25–45 m, 50–70 m, 75–95 m).
+
+# If cells contain handwritten numbers or circles, include those values as the cell entries.
+
+# If a cell is empty, return null.
+
+# Output format (JSON):
+
+# {
+#   "columns": ["0-20m", "25-45m", "50-70m", "75-95m"],
+#   "rows": [
+#     {
+#       "fish": "Butterflyfish (Chaetodontidae)",
+#       "0-20m": value,
+#       "25-45m": value,
+#       "50-70m": value,
+#       "75-95m": value
+#     }
+#   ]
+# }
+
+
+# Only extract information that is clearly visible in the image. Do not infer or guess missing data.
+
+# """
+
 FISH_SLATE_IMAGE_INSTRUCTIONS = """
-You are given an image of an underwater survey slate used for reef monitoring.
+You will be shown a photo of a diver’s tally sheet.
 
-There are different table sections, extract information for each one.
+Input image: Image of the recordings
 
-Task:
+Rotate the slate 90 degrees clockwise so headers read left-to-right.
 
-Extract the row labels (fish species names).
+Depth rows (exact text): 0–20 m (distance_one) · 25–45 m (distance_two) · 50–70 m (distance_three) · 75–95 m (distance_four)
 
-Extract the column labels, which represent distance/depth ranges.
+For every species name below, inspect the cell at each depth and report:  
+• count – integer you see (digits are normally circled)  
+• *_clear – true if the numeral is crisp; false if faint, smudged or partly erased  
+• If the cell is totally blank write count 0 and *_clear true.
 
-Output the result as a structured table (JSON object).
+Treat a circled “S” as the digit 5.
 
-Details:
+Return **one JSON object** that matches the Pydantic model shown after
 
-Rows correspond to fish species listed on the left.
+the species list.  Do not add any other keys or text.
 
-Columns correspond to the distance ranges shown across the top (e.g., 0–20 m, 25–45 m, 50–70 m, 75–95 m).
-
-If cells contain handwritten numbers or circles, include those values as the cell entries.
-
-If a cell is empty, return null.
-
-Output format (JSON):
-
-{
-  "columns": ["0-20m", "25-45m", "50-70m", "75-95m"],
-  "rows": [
-    {
-      "fish": "Butterflyfish (Chaetodontidae)",
-      "0-20m": value,
-      "25-45m": value,
-      "50-70m": value,
-      "75-95m": value
-    }
-  ]
-}
-
-
-Only extract information that is clearly visible in the image. Do not infer or guess missing data.
-
+Species list (verbatim)  
+Fish – Butterflyfish · Sweetlips · Snapper · Barramundi cod · Humphead wrasse · Bumphead parrotfish · Other parrotfish · Moray eel · Grouper 30-40 cm · Grouper 40-50 cm · Grouper 50-60 cm · Grouper > 60 cm  
+Invertebrates – Banded coral shrimp · Diadema urchin · Pencil urchin · Collector urchin · Sea cucumber · Crown of Thorns · Triton · Lobster · Giant Clam < 10 cm · Giant Clam 10-20 cm · Giant Clam 20-30 cm · Giant Clam 30-40 cm · Giant Clam 40-50 cm · Giant Clam > 50 cm  
+Impacts – Coral Damage – boat/anchor · Coral Damage – dynamite · Coral Damage – other · Trash – fish nets · Trash – general · Bleaching % population · Bleaching % colony  
+Coral Disease – Black Band % colonies · White band % colonies  
+Rare Animals – Shark · Turtle · Manta · Other
 """
-
-
-
 
 
 
