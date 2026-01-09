@@ -273,6 +273,7 @@ def create_fish_slate_dataframe(response_data: dict, csv_name: str) -> pd.DataFr
         new_columns.extend([distances[distance_idx], "set_{}_clear".format(distance_idx)])
     information_df.columns = new_columns
     information_df.to_csv(csv_name, index=False)
+    print(f"{type(information_df)}")
     return information_df
 
 
@@ -311,6 +312,7 @@ def extract_fish_data_from_dataframe(data: pd.DataFrame) -> dict:
         "coral_disease": coral_disease_records,
         "rare_animals": rare_animals_records
     }
+    print(process_dict)
     for key_ in process_dict.keys():
         annots[key_].extend(extract_fish_details(process_dict[key_]))
     return dict(annots)

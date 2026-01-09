@@ -128,7 +128,7 @@ def getting_records(table_name: str, days: int=7, gsi_name: str="CreationDateInd
           items.extend(response.get('Items', []))
           if not items:
              return {
-                'success': True, # false? ----
+                'success': True,
                 'message': 'No records found in the specified date range',
                 'data': pd.DataFrame()
             }
