@@ -1,9 +1,12 @@
-from typing import Optional
+from typing import Optional, Dict, Union, Any
 from datetime import datetime, timedelta
 import boto3
 import streamlit as st
 import os
 import pandas as pd
+
+# Type alias for DynamoDB item
+dynamodb_item = Dict[str, Any]
 
 os.environ["AWS_REGION"] = st.secrets['aws']['AWS_REGION']
 os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets['aws']["AWS_SECRET_ACCESS_KEY"]
@@ -75,87 +78,85 @@ def adding_record(table_name: str,
             }
         
 
-def getting_records(table_name: str, days: int=7, gsi_name: str="CreationDateIndex"):
-    """
-    Fetching records from DynamoDB
+def getting_records(table_name: str, days: int = 7, gsi_name: str = 'CreationDateIndex') -> Dict[str, Union[bool, str, pd.DataFrame]]:
+  """
+  Fetching records from DynamoDB
 
-    Args: table_name: str, days: int (default 7), gsi_name: str ("CreationDateIndex")
-    Output: dict containing succ/fail, status message, pandas dataframe containing records
-    """
-    try:
-      end_date = datetime.utcnow()
-      start_date = end_date - timedelta(days=days)
-      # initializing aws session and DynamoDB
-      session = boto3.Session(aws_access_key_id= os.getenv("AWS_ACCESS_KEY_ID"), 
-                              aws_secret_access_key= os.getenv("AWS_SECRET_ACCESS_KEY"),
-                              region_name= os.getenv("AWS_REGION"))
-      dynamodb = session.resource("dynamodb")
-      table = dynamodb.Table(table_name)
-
-      response = table.query(
+  Args: table_name: str, days: int (default 7), gsi_name: str ("CreationDateIndex")
+  Output: dict containing succ/fail, status message, pandas dataframe containing records
+  """
+  try:
+    # Calculate the date range
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=days)
+    
+    # Initialize AWS session and DynamoDB resource
+    session = boto3.Session(
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+        region_name=os.getenv('AWS_REGION')
+    )
+    
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table(table_name)
+    response = table.query(
+          IndexName=gsi_name,
+          KeyConditionExpression='#pk = :pk_value AND #cd BETWEEN :start_date AND :end_date',
+          ExpressionAttributeNames={
+              '#pk': 'status',  # The partition key of the GSI
+              '#cd': 'creation_date'  # The sort key of the GSI
+          },
+          ExpressionAttributeValues={
+              ':pk_value': 'success',
+              ':start_date': start_date.isoformat(),
+              ':end_date': end_date.isoformat()
+          },
+          ScanIndexForward=False  # Sort in descending order (newest first)
+      )
+    items = response.get('Items', [])
+      
+      # Handle pagination if there are more items
+    while 'LastEvaluatedKey' in response:
+        response = table.query(
             IndexName=gsi_name,
             KeyConditionExpression='#pk = :pk_value AND #cd BETWEEN :start_date AND :end_date',
             ExpressionAttributeNames={
-                '#pk': 'status',  # The partition key of the GSI
-                '#cd': 'creation_date'  # The sort key of the GSI
+                '#pk': 'status',
+                '#cd': 'creation_date'
             },
             ExpressionAttributeValues={
                 ':pk_value': 'success',
                 ':start_date': start_date.isoformat(),
                 ':end_date': end_date.isoformat()
             },
-            ScanIndexForward=False  # Sort in descending order (newest first)
-
+            ExclusiveStartKey=response['LastEvaluatedKey'],
+            ScanIndexForward=False
         )
-      items = response.get("items", [])
-      # Handle pagination if there are more items
-      while 'LastEvaluatedKey' in response:
-          response = table.query(
-              IndexName=gsi_name,
-              KeyConditionExpression='#pk = :pk_value AND #cd BETWEEN :start_date AND :end_date',
-              ExpressionAttributeNames={
-                  '#pk': 'status',
-                  '#cd': 'creation_date'
-              },
-              ExpressionAttributeValues={
-                  ':pk_value': 'success',
-                  ':start_date': start_date.isoformat(),
-                  ':end_date': end_date.isoformat()
-              },
-              ExclusiveStartKey=response['LastEvaluatedKey'],
-              ScanIndexForward=False
-          )
-          items.extend(response.get('Items', []))
-          if not items:
-             return {
-                'success': True,
-                'message': 'No records found in the specified date range',
-                'data': pd.DataFrame()
-            }
-          # convert to dataframe
-          df = pd.DataFrame(items)
-          # Convert creation_date to datetime and sort
-          if 'creation_date' in df.columns:
-              df['creation_date'] = pd.to_datetime(df['creation_date'])
-              df = df.sort_values('creation_date', ascending=False)
-          
-          return {
-              'success': True,
-              'message': f'Successfully retrieved {len(df)} records',
-              'data': df
-          }
-
-           
-    except Exception as e:
+        items.extend(response.get('Items', []))
+    if not items:
       return {
-            'success': False,
-            'message': f'Error fetching records: {str(e)}',
-            'data': None
-        }
-
-
-
-
-
-
-
+          'success': True,
+          'message': 'No records found in the specified date range',
+          'data': pd.DataFrame()
+      }
+      
+      # Convert to DataFrame
+    df = pd.DataFrame(items)
+        
+      # Convert creation_date to datetime and sort
+    if 'creation_date' in df.columns:
+      df['creation_date'] = pd.to_datetime(df['creation_date'])
+      df = df.sort_values('creation_date', ascending=False)
+      
+    return {
+        'success': True,
+        'message': f'Successfully retrieved {len(df)} records',
+        'data': df
+    }
+      
+  except Exception as e:
+    return {
+        'success': False,
+        'message': f'Error fetching records: {str(e)}',
+        'data': None
+    }
