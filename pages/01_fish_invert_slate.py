@@ -41,6 +41,8 @@ if "fish_invert_dataframe" not in st.session_state:
 
 def user_off_editable_dataframe():
     st.session_state.fish_dataframe = False
+    st.session_state.fish_invert_button = False
+    st.session_state.fish_invert_file_name = False
     st.session_state.fish_invert_image = None
 
 def user_editable_dataframe():
@@ -114,22 +116,21 @@ def fish_invert_slate():
                 # save excel files
                 fish_excel_url = upload_to_s3(save_fish_excel_name, upload_bucket_path(st.user["name"], st.user["sub"], "excel", "fish_slate", f"{fish_data_id}_{fish_file_name}") )
                 if fish_excel_url:
-                    st.toast("Excel uploading is complete!")
+                    st.toast("Excel uploading is complete!", icon="✅")
                 else:
                     download_capability = False
                 # save image files
                 fish_image_url = upload_to_s3(FISH_INVERT_IMAGE, upload_bucket_path(st.user["name"], st.user["sub"], "image", "fish_slate", f"{fish_data_id}_{fish_file_name}") )
                 if fish_image_url:
-                    st.toast("Image uploading is complete!")
+                    st.toast("Image uploading is complete!", icon="✅")
                 else:
                     download_capability = False
                 # add record
                 if download_capability:
-                    st.toast("db_response")
                     db_response = adding_record(DB_TABLE_NAME, fish_data_id, st.user["sub"], st.user["name"], fish_image_url, fish_excel_url, "success")  
                     print(db_response)           
-                    if db_response["Success"]:
-                        st.toss("Record Saved")
+                    if db_response["success"]:
+                        st.toast("Record Saved", icon="✅")
                     else:
                         download_capability = False
             if not download_capability:
