@@ -13,47 +13,6 @@ def load_and_prepare_excel_for_substrate(excel_name: str):
         buffer.seek(0)
         return buffer.getvalue()
 
-# def handle_image_orientation(image):
-
-#     """
-
-#     Handling image orientation
-    
-#     Arguments:
-#         image: PIL image
-
-#     Outputs:
-#         image: oriented PIL image
-
-#     """
-
-#     try:
-#         # checks orientation of image, otherwise jumps out
-#         for orientation in ExifTags.TAGS.keys():
-#             if ExifTags.TAGS[orientation] == 'Orientation':
-#                 break
-#         # gets numeric info about orientation
-#         exif = dict(image._getexif().items())
-
-#         if exif[orientation] == 3:
-#             image = image.rotate(180, expand=True)
-
-#         elif exif[orientation] == 6:
-#             image = image.rotate(270, expand=True)
-
-#         elif exif[orientation] == 8:
-#             image = image.rotate(90, expand=True)
-
-#     except (AttributeError, KeyError, IndexError):
-
-#         print("Image does not have exif data")
-#         # cases: image don't have exif data
-#         pass
-
-#     return image
-
-
-    # Image utilities
 
 def handle_image_orientation(image: Image.Image) -> Image.Image:
     """
@@ -114,6 +73,8 @@ def create_substrate_dataframe(response_data: dict, csv_name: str) -> pd.DataFra
     
     """
     segment_distances = ["0 - 19.5m", "25 - 44.5m", "50 - 65.5m", "75 - 94.5m"]
+    # pop out slate info
+    info_segment = response_data.pop('info_segment', None)
     # get unique keys
     response_keys = list(response_data.keys())
     # create dataframes
@@ -134,7 +95,7 @@ def create_substrate_dataframe(response_data: dict, csv_name: str) -> pd.DataFra
     columns = pd.MultiIndex.from_arrays(arrays)
     df = pd.DataFrame(df.iloc[:,:].values, columns=columns)
     df.to_csv(csv_name, index=False)
-    return df
+    return df, info_segment
 
 
 
@@ -203,7 +164,7 @@ def extract_single_attributes(selected_set: list, index_val: int) -> list:
 
 # excel creation
 
-def create_substrate_excel_file(substrate_dict: dict, excel_file_name: str):
+def create_substrate_excel_file(substrate_dict: dict, info_data: dict, excel_file_name: str):
   segment_set_1 = substrate_dict["segment_one"]
   segment_set_2 = substrate_dict["segment_two"]
   segment_set_3 = substrate_dict["segment_three"]
@@ -236,21 +197,53 @@ def create_substrate_excel_file(substrate_dict: dict, excel_file_name: str):
   # adding borders for cells
   borders = workbook.add_format({"border": True})
 
+  #Write info headers.
+  worksheet.merge_range("A1:B1", "Site Name", bold)
+  worksheet.merge_range("C1:D1", "Country/ island", bold)
+  worksheet.merge_range("E1:F1", "Team Leader", bold)
+  worksheet.merge_range("G1:H1", "Data Recorded By", bold)
+  worksheet.merge_range("I1:J1", "Depth", bold)
+  worksheet.merge_range("K1:L1", "Date", bold)
+  worksheet.merge_range("M1:N1", "Time", bold)
+
+
+
   # adjusting the columns
-  worksheet.merge_range("A1:P1", "Substrate Information", bold)
-  worksheet.merge_range("A2:D2", "Segment_one", bold)
-  worksheet.merge_range("E2:H2", "Segment_two", bold)
-  worksheet.merge_range("I2:L2", "Segment_three", bold)
-  worksheet.merge_range("M2:P2", "Segment_four", bold)
+  worksheet.merge_range("A5:P5", "Substrate Information", bold)
+  worksheet.merge_range("A6:D6", "Segment_one", bold)
+  worksheet.merge_range("E6:H6", "Segment_two", bold)
+  worksheet.merge_range("I6:L6", "Segment_three", bold)
+  worksheet.merge_range("M6:P6", "Segment_four", bold)
 
   # distances
-  worksheet.merge_range("A3:D3", "0 - 19.5 m", bold)
-  worksheet.merge_range("E3:H3", "25 - 44.5 m", bold)
-  worksheet.merge_range("I3:L3", "50 - 69.5 m", bold)
-  worksheet.merge_range("M3:P3", "75 - 94.5 m", bold)
+  worksheet.merge_range("A7:D7", "0 - 19.5 m", bold)
+  worksheet.merge_range("E7:H7", "25 - 44.5 m", bold)
+  worksheet.merge_range("I7:L7", "50 - 69.5 m", bold)
+  worksheet.merge_range("M7:P7", "75 - 94.5 m", bold)
 
+  info_col = 0
+  info_row = 2
+  info_fields = [
+    "site_name",
+    "country_island",
+    "team_leader",
+    "data_recorded_by",
+    "depth",
+    "date",
+    "time",
+]
+  for field in info_fields:
+    worksheet.merge_range(
+        info_row - 1,        # row index (0-based)
+        info_col,
+        info_row - 1,
+        info_col + 1,
+        info_data.get(field, ""),
+        borders
+    )
+    info_col += 2
 
-  row = 3
+  row = 8
   for segment in final_segments:
     col = 0
     for ridx in range(0, 24, 3):
@@ -259,7 +252,7 @@ def create_substrate_excel_file(substrate_dict: dict, excel_file_name: str):
       worksheet.write(row, col, segment[ridx+1], not_clear if not segment[ridx+2] else borders)
       col += 1
     row += 1
-  workbook.close()
+    workbook.close()
 
 def create_fish_slate_dataframe(response_data: dict, csv_name: str) -> pd.DataFrame:
     distances = ["0-20m", "25-45m", "50-70m", "75-95m"]

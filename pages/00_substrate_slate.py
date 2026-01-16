@@ -10,6 +10,8 @@ import uuid
 from s3_utils import upload_to_s3, upload_bucket_path
 from db_utils import adding_record
 from utils import load_and_prepare_excel_for_substrate
+from session_records import init_slate_information
+import datetime
 
 # taking environment variables
 os.environ['ENV'] = st.secrets["aws"]["ENV"]
@@ -37,9 +39,23 @@ if "image" not in st.session_state:
 if "substrate_dataframe" not in st.session_state:
     st.session_state.substrate_dataframe = None
 
+if "submit_all" not in st.session_state:
+    st.session_state.submit_all = False
+
+if "slate_form_done" not in st.session_state:
+    st.session_state.slate_form_done = False
+
+
+init_slate_information()
+
 def user_off_editable_dataframe():
     st.session_state.dataframe = False
     st.session_state.image = None
+    st.session_state.submit_all = False
+    st.session_state.slate_form_done = False
+
+def info_submitted():
+    st.session_state.submit_all = True
 
 def user_editable_dataframe():
     st.session_state.dataframe = True
@@ -73,7 +89,7 @@ def substrate_slate():
     # save the uploaded substrate in session_state
     if uploaded_substrate is not None:
         # if not st.session_state.substrate_dataframe:
-        if not st.session_state.dataframe and not st.session_state.button and not st.session_state.file_name:
+        if not st.session_state.dataframe and not st.session_state.button and not st.session_state.file_name and not st.session_state.submit_all:
             # store copy of the substrate in session_state
             image = handle_image_orientation(Image.open(uploaded_substrate))
             st.session_state.image = image
@@ -82,13 +98,51 @@ def substrate_slate():
             with st.spinner("Generating Substrate Labels", show_time=True):
                 substrate_labels = create_image_labels(SUBSTRATE_IMAGE)
                 st.toast("Your edited image was saved!", icon="😍")
-                substrate_dataframe = create_substrate_dataframe(substrate_labels.model_dump(), SUBSTRATE_CSV)
+                substrate_dataframe, slate_info = create_substrate_dataframe(substrate_labels.model_dump(), SUBSTRATE_CSV)
+                st.session_state.slate_information = slate_info[0].copy()
                 st.session_state.substrate_dataframe = substrate_dataframe
         try:
             st.sidebar.image(st.session_state.image, caption="User uploaded substrate image")
         except Exception as error:
             st.error("We couldn't display your image!")
             st.stop()
+
+        # Enter the Slate info form
+        if not st.session_state.slate_form_done:
+            slate_dict = st.session_state.slate_information.copy()
+            with st.form("Fill The Slate Info Sheet"):
+                site_name = st.text_input("Site Name", slate_dict.get('site_name', ""))
+                country_island = st.text_input("Country Island", slate_dict.get('country_island', ""))
+                depth = st.text_input("Depth", slate_dict.get('depth', ""))
+                team_leader = st.text_input("Team Leader", slate_dict.get('team_leader', ""))
+                data_recorded_by = st.text_input(
+                    "Data Recorded By",
+                    slate_dict.get('data_recorded_by', "")
+                )
+                date = st.date_input(
+                    "Date of Recording",
+                    value=datetime.date.today()
+                )
+                time = st.time_input(
+                    "Time of Recording",
+                    value=datetime.datetime.now().time()
+                )
+                    
+                submitted = st.form_submit_button("Update", on_click=info_submitted)
+                
+                if submitted:
+                    
+                    st.session_state.slate_information.update({
+                    "site_name": site_name.strip(),
+                    "country_island": country_island.strip(),
+                    "depth": depth.strip(),
+                    "team_leader": team_leader.strip(),
+                    "data_recorded_by": data_recorded_by.strip(),
+                    "date": date.isoformat(),
+                    "time": time.strftime("%H:%M:%S")
+                })
+                    st.session_state.slate_form_done = True
+                    st.toast("Slate info updated", icon='🟢')
         
 
        # st.dataframe(st.session_state.substrate_dataframe)
@@ -107,7 +161,7 @@ def substrate_slate():
             with st.spinner("Saving"):
                 # taking csv data and creating excel file
                 extracted_substrate_data = extract_data_from_dataframe(edited_dataframe)
-                create_substrate_excel_file(extracted_substrate_data, save_excel_name)
+                create_substrate_excel_file(extracted_substrate_data, st.session_state.slate_information, save_excel_name)
                 # creating a unique id
                 data_id = str(uuid.uuid4())
                 # save excel files

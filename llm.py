@@ -29,6 +29,15 @@ class LabelRecordings(BaseModel):
   label: str
   label_status: bool
 
+class InfoRecordings(BaseModel):
+  site_name: str
+  country_island: str
+  team_leader: str
+  data_recorded_by: str
+  depth: str
+  date: str
+  time: str
+
 class LabelRecordingsFishInvert(BaseModel):
     name: str = Field(None, description = "Species Name")
     distance_one: int
@@ -41,6 +50,7 @@ class LabelRecordingsFishInvert(BaseModel):
     distance_four_clear: bool
 
 class SegmentationLabels(BaseModel):
+  info_segment: List[InfoRecordings]
   segment_one: List[LabelRecordings]
   segment_two: List[LabelRecordings]
   segment_three: List[LabelRecordings]
