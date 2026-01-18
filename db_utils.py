@@ -54,7 +54,7 @@ def adding_record(table_name: str,
       "user_name": user_name,
       "image_url": image_url,
       "excel_url": excel_url,
-      "upload_status": upload_status,
+      "status": upload_status,
       'creation_date': creation_date or datetime.utcnow().isoformat()
 
       }
