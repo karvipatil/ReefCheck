@@ -20,18 +20,18 @@ admin_users = st.secrets["admin"]["ADMIN_USERS"]
 DB_TABLE_NAME = f"{os.environ['ENV']}-reefcheck"
 
 # Authentication
-if not st.experimental_user.is_logged_in:
+if not st.user.is_logged_in:
     st.error("🔒 Please log in to access this page.")
     st.stop()
 
-if st.experimental_user['email'] not in admin_users:
+if st.user['email'] not in admin_users:
     st.error("⛔ You are not authorized to access this page.")
     st.stop()
 
 # Sidebar with filters
 with st.sidebar:
     st.title("Admin Controls")
-    st.write(f"Welcome, {st.experimental_user['name']} 👋")
+    st.write(f"Welcome, {st.user['name']} 👋")
     days_to_show = st.slider(
         "Show data for last (days):",
         min_value=7,
@@ -40,7 +40,7 @@ with st.sidebar:
         step=7
     )
     st.markdown("---")
-    st.caption(f"Logged in as: {st.experimental_user['email']}")
+    st.caption(f"Logged in as: {st.user['email']}")
 
 # Main content
 st.title("ReefCheck Admin Dashboard")
