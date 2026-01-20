@@ -23,12 +23,12 @@ MODEL = "gpt-4o"
 # set the openai model
 llm = ChatOpenAI(model=MODEL, temperature=0)
 
-# creating structured outputs for SUBSTRATE_SLATE
-class LabelRecordings(BaseModel):
-  distance: str
-  label: str
-  label_status: bool
 
+class LabelRecordings(BaseModel):
+    distance: str
+    label: str
+    label_status: bool
+    
 class InfoRecordings(BaseModel):
   site_name: str
   country_island: str
@@ -37,6 +37,15 @@ class InfoRecordings(BaseModel):
   depth: str
   date: str
   time: str
+  
+
+class SegmentationLabels(BaseModel):
+  info_segment: List[InfoRecordings]
+  segment_one: List[LabelRecordings]
+  segment_two: List[LabelRecordings]
+  segment_three: List[LabelRecordings]
+  segment_four: List[LabelRecordings]
+
 
 class LabelRecordingsFishInvert(BaseModel):
     name: str = Field(None, description = "Species Name")
@@ -49,12 +58,6 @@ class LabelRecordingsFishInvert(BaseModel):
     distance_four: int 
     distance_four_clear: bool
 
-class SegmentationLabels(BaseModel):
-  info_segment: List[InfoRecordings]
-  segment_one: List[LabelRecordings]
-  segment_two: List[LabelRecordings]
-  segment_three: List[LabelRecordings]
-  segment_four: List[LabelRecordings]
 
 class SegmentationLabelsFishInvert(BaseModel):
     fish: List[LabelRecordingsFishInvert]
@@ -64,47 +67,46 @@ class SegmentationLabelsFishInvert(BaseModel):
     rare_animals: List[LabelRecordingsFishInvert]
 
 
-# converting image to base64
 def encode_image(image_path):
   with open(image_path, "rb") as image_file:
     return base64.b64encode(image_file.read()).decode('utf-8')
-  
 
-# for SUBSTRATE_SLATE
-def create_image_labels(image_path: str, human_prompt: str = SUBSTRATE_SLATE_IMAGE_INSTRUCTIONS):
-  image_data = encode_image(image_path)
-  message = HumanMessage(
+
+def image_label_generator(image_local_path: str, prompt: str = SUBSTRATE_SLATE_IMAGE_INSTRUCTIONS):
+    image_data = encode_image(image_local_path)
+    # set up the message
+    message = HumanMessage(
         content=[
-            {"type": "text", "text": human_prompt},
+            {"type": "text", "text": prompt},
             {
                 "type": "image_url",
                 "image_url": {"url": f"data:image/png;base64,{image_data}"},
             },
         ],
     )
-  # create a structured output
-  structured_llm = llm.with_structured_output(SegmentationLabels)
-  # invoke the llm to generate a query
-  invoke_image_query = structured_llm.invoke([message])
-  return invoke_image_query
+    # create a structured output
+    structured_llm = llm.with_structured_output(SegmentationLabels)
+    # invoke the llm to generatr an query
+    invoke_image_query = structured_llm.invoke([message])
 
-def create_fish_slate_labels(image_path: str, human_prompt: str = FISH_SLATE_IMAGE_INSTRUCTIONS):
-  image_data = encode_image(image_path)
-  message = HumanMessage(
+    return invoke_image_query
+
+
+def image_label_generator_fish_invert(image_local_path: str, prompt: str = FISH_SLATE_IMAGE_INSTRUCTIONS):
+    image_data = encode_image(image_local_path)
+    # set up the message
+    message = HumanMessage(
         content=[
-            {"type": "text", "text": human_prompt},
+            {"type": "text", "text": prompt},
             {
                 "type": "image_url",
-                "image_url": {"url": f"data:image/png;base64,{image_data}"},
+                "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
             },
         ],
     )
-  # create a structured output
-  structured_llm = llm.with_structured_output(SegmentationLabelsFishInvert)
-  # invoke the llm to generate a query
-  invoke_image_query = structured_llm.invoke([message])
-  return invoke_image_query
+    # create a structured output
+    structured_llm = llm.with_structured_output(SegmentationLabelsFishInvert)
+    # invoke the llm to generatr an query
+    invoke_image_query = structured_llm.invoke([message])
 
-
-
-
+    return invoke_image_query

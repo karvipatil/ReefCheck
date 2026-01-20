@@ -1,154 +1,97 @@
-from PIL import Image, ExifTags
-import pandas as pd
 from collections import defaultdict
-import xlsxwriter 
-from openpyxl import load_workbook
+import pandas as pd
 from io import BytesIO
+import xlsxwriter
+from openpyxl import load_workbook
+from PIL import Image, ExifTags
+import streamlit as st
+import os
 
 
-def load_and_prepare_excel_for_substrate(excel_name: str):
-    workbook = load_workbook(excel_name)
-    with BytesIO() as buffer:
-        workbook.save(buffer)
-        buffer.seek(0)
-        return buffer.getvalue()
+# environment variables
+os.environ["ENV"] = st.secrets["aws"]["ENV"]
 
 
+# Image utilities
 def handle_image_orientation(image: Image.Image) -> Image.Image:
     """
     Handle image orientation based on EXIF data.
-    If the image has no EXIF or orientation info, it returns the image as-is.
+    
+    Args:
+        image: PIL Image object
+        
+    Returns:
+        PIL Image object with correct orientation
     """
     try:
-        exif = image._getexif()
-        if exif is None:
-            # No EXIF data, just return the image
-            print("** no exif")
-            return image
+        for orientation in ExifTags.TAGS.keys():
+            if ExifTags.TAGS[orientation] == 'Orientation':
+                break
+        exif = dict(image._getexif().items())
 
-        # Find the orientation tag
-        orientation_key = next((k for k, v in ExifTags.TAGS.items() if v == "Orientation"), None)
-        if orientation_key is None or orientation_key not in exif:
-            return image
-
-        orientation = exif.get(orientation_key, 1) if exif else 1
-
-        # Rotate based on orientation
-        if orientation == 3:
+        if exif[orientation] == 3:
             image = image.rotate(180, expand=True)
-        elif orientation == 6:
+        elif exif[orientation] == 6:
             image = image.rotate(270, expand=True)
-        elif orientation == 8:
+        elif exif[orientation] == 8:
             image = image.rotate(90, expand=True)
-
-    except Exception as e:
-        # If anything goes wrong, just return the image
-        print(f"Failed to handle EXIF orientation: {e}")
+    except (AttributeError, KeyError, IndexError):
+        print("Image does not have exif data")
+        # cases: image don't have exif data
         pass
-
+    
     return image
 
-
-
 # substrate analysis
-
 def generate_keys(key_list, multiplier = 3):
-    
-    """
-    Generating keys
-    
-    """
     new_list = []
+
     for label in key_list:
         new_list.extend([label]*multiplier)
+
     return new_list
 
-def create_substrate_dataframe(response_data: dict, csv_name: str) -> pd.DataFrame:
-    """
-    Creating a dataframe using the LLM output
-    
-    Args: response_data, csv_name
-    Output: Dataframe (df)
 
-    
-    """
+def create_substrate_dataframe(response_data: dict, csv_name: str) -> pd.DataFrame:
     segment_distances = ["0 - 19.5m", "25 - 44.5m", "50 - 65.5m", "75 - 94.5m"]
-    # pop out slate info
+
+    # pop out the slate info 
     info_segment = response_data.pop('info_segment', None)
     # get unique keys
     response_keys = list(response_data.keys())
     # create dataframes
     df = pd.concat([pd.DataFrame.from_dict(response_data[key]) for key in list(response_data.keys())], axis = 1)
+
     # create unique column names
     column_names = []
     for num in range(len(list(response_data.keys()))):
         column_names.extend([f"distance_{num}", f"label_{num}", f"clear_{num}"])
     # set column names
     df.columns = column_names
+
+    # generate multi-level index
     segment_list = generate_keys(list(response_data.keys()))
     merge_list = generate_keys(segment_distances)
+
+    # create multi index
     arrays = [
         segment_list,
         merge_list,
         column_names
     ]
     columns = pd.MultiIndex.from_arrays(arrays)
-    df = pd.DataFrame(df.iloc[:,:].values, columns=columns)
+    # create a dataframe
+    df = pd.DataFrame(df.iloc[:,:].values, columns=columns)  
+
+    # save the dataframe to a csv file
     df.to_csv(csv_name, index=False)
+
     return df, info_segment
 
 
-
-def extract_data_from_dataframe(df):
-    """
-   Extracts data from the dataframe
-   
-   Args: pandas dataframe
-
-   Outputs: dict segment info: distance, label, label_status
-
-    Example:
-    {'segment_one': [{'distance': '0.0', 'label': 'HC', 'label_status': True}, 
-    {'distance': '0.5', 'label': 'HC', 'label_status': True}, 
-    {'distance': '1.0', 'label': 'HC', 'label_status': True}, 
-                    ... ],
-    'segment_two': [{'distance': '25.0', 'label': 'HC', 'label_status': True}, 
-    {'distance': '25.5.5', 'label': 'HC', 'label_status': True}, 
-    {'distance': '26.0', 'label': 'HC', 'label_status': True}, 
-                    ... ],
-
-    ...
-
-}
-    
-    
-    """
-    suffixes = ["one", "two", "three", "four"]
-    segment_info = defaultdict(list)
-    columns_df = list(df.columns)
-    count = 0
-
-    for index in range(0, 12, 3):
-        distances = df[columns_df[index]].to_list()
-        labels = df[columns_df[index+1]].to_list()
-        statuses = df[columns_df[index+2]].to_list()
-        segment_name = f"segment_{suffixes[count]}"
-        
-        for distance_, label_, status_ in zip(distances, labels, statuses):
-            segment_info[segment_name].append({
-                "distance": distance_,
-                "label": label_,
-                "label_status": status_
-            })
-        count += 1
-
-    return dict(segment_info)
-
-
-
 def extract_details(info: dict) -> list:
-    return [info["distance"], info["label"], info["label_status"]]
 
+    return [info["distance"], info["label"], info["label_status"]]
 
 
 def extract_single_attributes(selected_set: list, index_val: int) -> list:
@@ -158,183 +101,212 @@ def extract_single_attributes(selected_set: list, index_val: int) -> list:
     second_set = selected_set[index_val + 20]
     sub_segments.extend(extract_details(first_set))
     sub_segments.extend(extract_details(second_set))
+
     return sub_segments
 
 
+def substrate_excel_creation(response_data: dict, info_data: dict, excel_name: str):
+    information_data = info_data
+    selected_set_one = response_data["segment_one"]
+    selected_set_two = response_data["segment_two"]
+    selected_set_three = response_data["segment_three"]
+    selected_set_four = response_data["segment_four"]
 
-# excel creation
 
-def create_substrate_excel_file(substrate_dict: dict, info_data: dict, excel_file_name: str):
-  segment_set_1 = substrate_dict["segment_one"]
-  segment_set_2 = substrate_dict["segment_two"]
-  segment_set_3 = substrate_dict["segment_three"]
-  segment_set_4 = substrate_dict["segment_four"]
-
-  final_segments = []
-  for index in range(20):
+    final_segments = []
+    for index in range(20):
         sub_set_segments = []
         # first segment
-        sub_set_segments.extend(extract_single_attributes(segment_set_1, index))
+        sub_set_segments.extend(extract_single_attributes(selected_set_one, index))
         # seconds segment
-        sub_set_segments.extend(extract_single_attributes(segment_set_2, index))
+        sub_set_segments.extend(extract_single_attributes(selected_set_two, index))
         # seconds segment
-        sub_set_segments.extend(extract_single_attributes(segment_set_3, index))
+        sub_set_segments.extend(extract_single_attributes(selected_set_three, index))
         # seconds segment
-        sub_set_segments.extend(extract_single_attributes(segment_set_4, index))
+        sub_set_segments.extend(extract_single_attributes(selected_set_four, index))
         # append the segment
         final_segments.append(sub_set_segments)
 
-  # creating workbook and worksheet
-
-  workbook = xlsxwriter.Workbook(excel_file_name)
-  worksheet = workbook.add_worksheet()
-
-
-  # bolding the borders of cells
-  bold = workbook.add_format({"bold": True, "border": True, "center_across": True})
-  # making the background red for unclear labels
-  not_clear = workbook.add_format({"bold": True, "bg_color": "red", "border": True})
-  # adding borders for cells
-  borders = workbook.add_format({"border": True})
-
-  #Write info headers.
-  worksheet.merge_range("A1:B1", "Site Name", bold)
-  worksheet.merge_range("C1:D1", "Country/ island", bold)
-  worksheet.merge_range("E1:F1", "Team Leader", bold)
-  worksheet.merge_range("G1:H1", "Data Recorded By", bold)
-  worksheet.merge_range("I1:J1", "Depth", bold)
-  worksheet.merge_range("K1:L1", "Date", bold)
-  worksheet.merge_range("M1:N1", "Time", bold)
-
-
-
-  # adjusting the columns
-  worksheet.merge_range("A5:P5", "Substrate Information", bold)
-  worksheet.merge_range("A6:D6", "Segment_one", bold)
-  worksheet.merge_range("E6:H6", "Segment_two", bold)
-  worksheet.merge_range("I6:L6", "Segment_three", bold)
-  worksheet.merge_range("M6:P6", "Segment_four", bold)
-
-  # distances
-  worksheet.merge_range("A7:D7", "0 - 19.5 m", bold)
-  worksheet.merge_range("E7:H7", "25 - 44.5 m", bold)
-  worksheet.merge_range("I7:L7", "50 - 69.5 m", bold)
-  worksheet.merge_range("M7:P7", "75 - 94.5 m", bold)
-
-  info_col = 0
-  info_row = 2
-  info_fields = [
-    "site_name",
-    "country_island",
-    "team_leader",
-    "data_recorded_by",
-    "depth",
-    "date",
-    "time",
-]
-  for field in info_fields:
-    worksheet.merge_range(
-        info_row - 1,        # row index (0-based)
-        info_col,
-        info_row - 1,
-        info_col + 1,
-        info_data.get(field, ""),
-        borders
-    )
-    info_col += 2
-
-  row = 8
-  for segment in final_segments:
-    col = 0
-    for ridx in range(0, 24, 3):
-      worksheet.write(row, col, segment[ridx], borders)
-      col += 1
-      worksheet.write(row, col, segment[ridx+1], not_clear if not segment[ridx+2] else borders)
-      col += 1
-    row += 1
-    workbook.close()
-
-def create_fish_slate_dataframe(response_data: dict, csv_name: str) -> pd.DataFrame:
-    distances = ["0-20m", "25-45m", "50-70m", "75-95m"]
-    main_keys = list(response_data.keys())
-
-    information_df = pd.concat([pd.DataFrame.from_dict(response_data[key_]) for key_ in main_keys])
-    new_columns = []
-    new_columns.append("name")
-
-    for distance_idx in range(len(distances)):
-        new_columns.extend([distances[distance_idx], "set_{}_clear".format(distance_idx)])
-    information_df.columns = new_columns
-    information_df.to_csv(csv_name, index=False)
-    print(f"{type(information_df)}")
-    return information_df
-
-
-def extract_fish_details(fish_details: list) -> list:
-    total_records = []
-    for record_ in fish_details:
-        sample_dict = {}
-        sample_dict["name"] = record_["name"]
-        sample_dict["distance_one"] = record_["0-20m"]
-        sample_dict["distance_one_clear"] = record_["set_0_clear"]
-        sample_dict["distance_two"] = record_["25-45m"]
-        sample_dict["distance_two_clear"] = record_["set_1_clear"]
-        sample_dict["distance_three"] = record_["50-70m"]
-        sample_dict["distance_three_clear"] = record_["set_2_clear"]
-        sample_dict["distance_four"] = record_["75-95m"]
-        sample_dict["distance_four_clear"] = record_["set_3_clear"]
-        total_records.append(sample_dict)
-    return total_records
-
-
-def extract_fish_data_from_dataframe(data: pd.DataFrame) -> dict:
-    # get data records
-    records = data.to_dict(orient='records')
-    annots = defaultdict(list)
-    # original records
-    fish_records = records[: 12]
-    invertebrates_records = records[12: 26]
-    impacts_records = records[26: 33]
-    coral_disease_records = records[33: 35]
-    rare_animals_records = records[35: 39]
-    # processed records
-    process_dict = {
-        "fish": fish_records,
-        "invertebrates": invertebrates_records,
-        "impacts": impacts_records,
-        "coral_disease": coral_disease_records,
-        "rare_animals": rare_animals_records
-    }
-    print(process_dict)
-    for key_ in process_dict.keys():
-        annots[key_].extend(extract_fish_details(process_dict[key_]))
-    return dict(annots)
-
-
-def create_fish_slate_excel_file(response_data: dict, excel_name: str):
-    data_list = []
-    for key_ in list(response_data.keys()):
-        data_list.extend(response_data[key_])
-
-    distances = ["0 - 20m", "25 - 45m", "50 - 70m", "75 - 95m"]
     # Create a workbook and add a worksheet.
     workbook = xlsxwriter.Workbook(excel_name)
     worksheet = workbook.add_worksheet()
+
     # Add a bold format to use to highlight cells.
     bold = workbook.add_format({'bold': True, 'center_across': True, 'border': True})
-    # sub category
-    sub_format = workbook.add_format({'bold': True, 'center_across': True, 'border': True, 'bg_color': 'green'})
+
     # Add a border
     border = workbook.add_format({'border': True})
+
     # Add a number format for cells with money.
     not_clear = workbook.add_format({'bold': True, 'bg_color': 'red', 'border': True})
-    worksheet.merge_range("A1:E1", "Fish Slate Analysis", bold)
-    worksheet.write(1, 0, "Type", bold)
+
+    #Write info headers.
+    worksheet.merge_range("A1:B1", "Site Name", bold)
+    worksheet.merge_range("C1:D1", "Country/ island", bold)
+    worksheet.merge_range("E1:F1", "Team Leader", bold)
+    worksheet.merge_range("G1:H1", "Data Recorded By", bold)
+    worksheet.merge_range("I1:J1", "Depth", bold)
+    worksheet.merge_range("K1:L1", "Date", bold)
+    worksheet.merge_range("M1:N1", "Time", bold)
+    
+    
+    # Write some data headers.
+    worksheet.merge_range("A5:P5", "Substrate Analysis", bold)
+    worksheet.merge_range("A6:D6", "Segment One", bold)
+    worksheet.merge_range("E6:H6", "Segment Two", bold)
+    worksheet.merge_range("I6:L6", "Segment Three", bold)
+    worksheet.merge_range("M6:P6", "Segment Four", bold)
+
+
+    # distances
+    worksheet.merge_range("A7:D7", "0 - 19.5m", bold)
+    worksheet.merge_range("E7:H7", "25 - 44.5m", bold)
+    worksheet.merge_range("I7:L7", "50 - 69.5m", bold)
+    worksheet.merge_range("M7:P7", "75 - 94.5", bold)
+
+    info_col = 0
+    info_row = 2
+
+    info_fields = [
+        "site_name",
+        "country_island",
+        "team_leader",
+        "data_recorded_by",
+        "depth",
+        "date",
+        "time",
+    ]
+
+    for field in info_fields:
+        worksheet.merge_range(
+            info_row - 1,        # row index (0-based)
+            info_col,
+            info_row - 1,
+            info_col + 1,
+            info_data.get(field, ""),
+            border
+        )
+        info_col += 2
+            
+
+    
+    row = 8
+    # adding records
+    for diff_segments in final_segments:
+        col = 0
+        for range_index in range(0, 24, 3):
+            worksheet.write(row, col, diff_segments[range_index], border)
+            col += 1
+            worksheet.write(row, col, diff_segments[range_index +1], not_clear if not diff_segments[range_index +2] else border)
+            col += 1
+        row += 1
+
+
+    workbook.close()
+
+
+def load_and_prepare_excel_for_substrate(excel_name: str):
+    # Load the workbook and select the active sheet
+    workbook = load_workbook(excel_name)
+    with BytesIO() as buffer:
+        workbook.save(buffer)
+        buffer.seek(0)
+        return buffer.getvalue()
+
+
+def create_fish_slate_dataframe(response_data: dict, csv_name: str) -> pd.DataFrame:
+    # distances are constants
+    distances = ["0 - 20m", "25 - 45m", "50 - 75m", "75 - 95m"]
+
+    main_keys = list(response_data.keys())
+
+    info_df = pd.concat([pd.DataFrame.from_dict(response_data[key_]) for key_ in main_keys])
+    
+    new_columns = []
+    new_columns.append("name")
+    for distance_index in range(len(distances)):
+        new_columns.extend([distances[distance_index], "set_{}_clear".format(distance_index)])
+
+    info_df.columns = new_columns
+
+    # save the dataframe to a csv file
+    info_df.to_csv(csv_name, index=False)
+
+    return info_df
+
+
+def fish_slate_excel_creation(response_data: dict, info_data: dict, excel_name: str):
+
+    data_list = []
+
+    for key_ in list(response_data.keys()):
+        data_list.extend(response_data[key_])
+
+
+    distances = ["0 - 20m", "25 - 45m", "50 - 75m", "75 - 95m"]
+    # Create a workbook and add a worksheet.
+    workbook = xlsxwriter.Workbook(excel_name)
+    worksheet = workbook.add_worksheet()
+
+    # Add a bold format to use to highlight cells.
+    bold = workbook.add_format({'bold': True, 'center_across': True, 'border': True})
+
+    # sub category
+    sub_format = workbook.add_format({'bold': True, 'center_across': True, 'border': True, 'bg_color': 'green'})
+
+    # Add a border
+    border = workbook.add_format({'border': True})
+
+    # Add a number format for cells with money.
+    not_clear = workbook.add_format({'bold': True, 'bg_color': 'red', 'border': True})
+
+    #Write info headers.
+    worksheet.merge_range("A1:B1", "Site Name", bold)
+    worksheet.merge_range("C1:D1", "Country/ island", bold)
+    worksheet.merge_range("E1:F1", "Team Leader", bold)
+    worksheet.merge_range("G1:H1", "Data Recorded By", bold)
+    worksheet.merge_range("I1:J1", "Depth", bold)
+    worksheet.merge_range("K1:L1", "Date", bold)
+    worksheet.merge_range("M1:N1", "Time", bold)
+    
+    
+    
+    worksheet.merge_range("A4:E4", "Fish Slate Analysis", bold)
+    worksheet.write(4, 0, "Type", bold)
     worksheet.set_column('A:A', 30)
+    
+    # Write Fish Slate record data
+    info_col = 0
+    info_row = 2
+
+    info_fields = [
+        "site_name",
+        "country_island",
+        "team_leader",
+        "data_recorded_by",
+        "depth",
+        "date",
+        "time",
+    ]
+
+    for field in info_fields:
+        worksheet.merge_range(
+            info_row - 1,        # row index (0-based)
+            info_col,
+            info_row - 1,
+            info_col + 1,
+            info_data.get(field, ""),
+            border
+        )
+        info_col += 2
+    
+    
+    
     # distances
     for index in range(len(distances)):
-        worksheet.write(1, index + 1, distances[index] , bold)
-    row = 2
+        worksheet.write(4, index + 1, distances[index] , bold)
+
+    row = 5
     col = 0
     for key_ in list(response_data.keys()):
         worksheet.write(row, col, key_, sub_format)
@@ -347,11 +319,12 @@ def create_fish_slate_excel_file(response_data: dict, excel_name: str):
             worksheet.write(row, col+4, data_dict["distance_four"], not_clear if not data_dict["distance_four_clear"] else border)
             row += 1
 
+
     workbook.close()
 
 
-
 def load_and_prepare_excel_for_fish_slate(excel_name: str):
+    # Load the workbook and select the active sheet
     workbook = load_workbook(excel_name)
     with BytesIO() as buffer:
         workbook.save(buffer)
@@ -359,13 +332,72 @@ def load_and_prepare_excel_for_fish_slate(excel_name: str):
         return buffer.getvalue()
 
 
+def substrate_excel_data_extractor(data: pd.DataFrame) -> dict:
+    suffixes = ["one", "two", "three", "four"]
+    annots = defaultdict(list)
+    column_list = list(data.columns)
+    count = 0
+
+    for index in range(0, 12, 3):
+        distance = data[column_list[index]].to_list()
+        label = data[column_list[index + 1]].to_list()
+        status = data[column_list[index + 2]].to_list()
+
+        for distance_, label_, status_ in zip(distance, label, status):
+            annots["segment_{}".format(suffixes[count])].append({
+                "distance": distance_,
+                "label": label_,
+                "label_status": status_
+            })
+
+        count +=1
+
+    return dict(annots)
 
 
+def extract_fish_details(fish_details: list) -> list:
+    total_records = []
+
+    for record_ in fish_details:
+        sample_dict = {}
+        sample_dict["name"] = record_["name"]
+        sample_dict["distance_one"] = record_["0 - 20m"]
+        sample_dict["distance_one_clear"] = record_["set_0_clear"]
+        sample_dict["distance_two"] = record_["25 - 45m"]
+        sample_dict["distance_two_clear"] = record_["set_1_clear"]
+        sample_dict["distance_three"] = record_["50 - 75m"]
+        sample_dict["distance_three_clear"] = record_["set_2_clear"]
+        sample_dict["distance_four"] = record_["75 - 95m"]
+        sample_dict["distance_four_clear"] = record_["set_3_clear"]
+        total_records.append(sample_dict)
+
+    return total_records
 
 
+def fish_excel_data_extractor(data: pd.DataFrame) -> dict:
+    # get data records
+    records = data.to_dict(orient='records')
 
+    annots = defaultdict(list)
 
+    # original records
+    fish_records = records[: 12]
+    invertebrates_records = records[12: 26]
+    impacts_records = records[26: 33]
+    coral_disease_records = records[33: 35]
+    rare_animals_records = records[35: 39]
 
+    # processed records
+    process_dict = {
+        "fish": fish_records,
+        "invertebrates": invertebrates_records,
+        "impacts": impacts_records,
+        "coral_disease": coral_disease_records,
+        "rare_animals": rare_animals_records
 
+    }
+    
+    for key_ in process_dict.keys():
+        annots[key_].extend(extract_fish_details(process_dict[key_]))
 
-
+    return dict(annots)

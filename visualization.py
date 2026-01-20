@@ -4,8 +4,6 @@ import streamlit as st
 import plotly.express as px
 from datetime import datetime, timedelta
 
-
-
 def plot_uploads_per_day(records_df: pd.DataFrame, days: int = 30) -> None:
     """
     Display a bar chart of uploads per day for the specified number of days.
@@ -97,7 +95,6 @@ def plot_uploads_per_day(records_df: pd.DataFrame, days: int = 30) -> None:
     else:
         st.error("No 'creation_date' column found in the data.")
 
-
 def plot_uploads_by_user(records_df: pd.DataFrame) -> None:
     """
     Display a bar chart of uploads by user.
@@ -136,10 +133,7 @@ def plot_uploads_by_user(records_df: pd.DataFrame) -> None:
     else:
         st.error("No 'user_name' column found in the data.")
 
-
-
-def displaying_loaded_analytics(records_df: pd.DataFrame, days: int = 30) -> None:
-
+def display_upload_analytics(records_df: pd.DataFrame, days: int = 30) -> None:
     """
     Display a dashboard of upload analytics.
     
