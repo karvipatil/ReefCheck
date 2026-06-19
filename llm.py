@@ -1,27 +1,19 @@
 import os
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
-from typing import TypedDict, Annotated, List, Dict
-import base64
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 import streamlit as st
+import google.generativeai as genai
+import PIL.Image
+from pydantic import BaseModel
+from typing import TypedDict, Annotated, List, Dict
 
 from prompt import SUBSTRATE_SLATE_IMAGE_INSTRUCTIONS, FISH_SLATE_IMAGE_INSTRUCTIONS
 
 
-# importing secrets from secrets.toml
-os.environ["LANGCHAIN_TRACING_V2"] = st.secrets["llm"]["LANGCHAIN_TRACING_V2"]
-os.environ["LANGCHAIN_API_KEY"] = st.secrets["llm"]["LANGCHAIN_API_KEY"]
-os.environ["LANGCHAIN_ENDPOINT"] = st.secrets["llm"]["LANGCHAIN_ENDPOINT"]
-os.environ["LANGCHAIN_PROJECT"] = st.secrets["llm"]["LANGCHAIN_PROJECT"]
-os.environ["OPENAI_API_KEY"] =  st.secrets["llm"]["OPENAI_API_KEY"]
-
+os.environ["GEMINI_API_KEY"] = st.secrets["gemini"]["GEMINI_API_KEY"]
 
 # constants
-MODEL = "gpt-4o"
-
-# set the openai model
-llm = ChatOpenAI(model=MODEL, temperature=0)
+MODEL = "gemini-2.5-flash"
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 
 class LabelRecordings(BaseModel):
@@ -67,46 +59,32 @@ class SegmentationLabelsFishInvert(BaseModel):
     rare_animals: List[LabelRecordingsFishInvert]
 
 
-def encode_image(image_path):
-  with open(image_path, "rb") as image_file:
-    return base64.b64encode(image_file.read()).decode('utf-8')
-
-
-def image_label_generator(image_local_path: str, prompt: str = SUBSTRATE_SLATE_IMAGE_INSTRUCTIONS):
-    image_data = encode_image(image_local_path)
-    # set up the message
-    message = HumanMessage(
-        content=[
-            {"type": "text", "text": prompt},
-            {
-                "type": "image_url",
-                "image_url": {"url": f"data:image/png;base64,{image_data}"},
-            },
-        ],
+def image_label_generator(image_path: str, prompt: str =  SUBSTRATE_SLATE_IMAGE_INSTRUCTIONS):
+    img = PIL.Image.open(image_path)
+    model = genai.GenerativeModel(
+        model_name=MODEL,
+        generation_config={
+            "response_mime_type": "application/json",
+            "response_schema": SegmentationLabels,
+        }
     )
-    # create a structured output
-    structured_llm = llm.with_structured_output(SegmentationLabels)
-    # invoke the llm to generatr an query
-    invoke_image_query = structured_llm.invoke([message])
-
-    return invoke_image_query
+    response = model.generate_content([prompt, img])
+    # Convert JSON string into validated Pydantic object
+    structured_output = SegmentationLabels.model_validate_json(response.text)
+    return structured_output
 
 
-def image_label_generator_fish_invert(image_local_path: str, prompt: str = FISH_SLATE_IMAGE_INSTRUCTIONS):
-    image_data = encode_image(image_local_path)
-    # set up the message
-    message = HumanMessage(
-        content=[
-            {"type": "text", "text": prompt},
-            {
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
-            },
-        ],
+def image_label_generator_fish_invert(image_path: str, prompt: str = FISH_SLATE_IMAGE_INSTRUCTIONS):
+    img = PIL.Image.open(image_path)
+    model = genai.GenerativeModel(
+        model_name=MODEL,
+        generation_config={
+            "response_mime_type": "application/json",
+            "response_schema": SegmentationLabelsFishInvert,
+        }
     )
-    # create a structured output
-    structured_llm = llm.with_structured_output(SegmentationLabelsFishInvert)
-    # invoke the llm to generatr an query
-    invoke_image_query = structured_llm.invoke([message])
+    response = model.generate_content([prompt, img])
+    # Convert JSON string into validated Pydantic object
+    structured_output = SegmentationLabelsFishInvert.model_validate_json(response.text)
+    return structured_output
 
-    return invoke_image_query
