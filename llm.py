@@ -1,7 +1,9 @@
 import os
+import io
 from pydantic import BaseModel, Field
 import streamlit as st
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import PIL.Image
 from pydantic import BaseModel
 from typing import TypedDict, Annotated, List, Dict
@@ -13,7 +15,8 @@ os.environ["GEMINI_API_KEY"] = st.secrets["gemini"]["GEMINI_API_KEY"]
 
 # constants
 MODEL = "gemini-2.5-flash"
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+# genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 
 class LabelRecordings(BaseModel):
@@ -59,32 +62,52 @@ class SegmentationLabelsFishInvert(BaseModel):
     rare_animals: List[LabelRecordingsFishInvert]
 
 
-def image_label_generator(image_path: str, prompt: str =  SUBSTRATE_SLATE_IMAGE_INSTRUCTIONS):
+
+
+def image_label_generator(image_path: str, prompt: str = SUBSTRATE_SLATE_IMAGE_INSTRUCTIONS):
+
     img = PIL.Image.open(image_path)
-    model = genai.GenerativeModel(
-        model_name=MODEL,
-        generation_config={
-            "response_mime_type": "application/json",
-            "response_schema": SegmentationLabels,
-        }
+    
+    # Convert image to bytes for the new SDK
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format=img.format or "PNG")
+    img_bytes = img_byte_arr.getvalue()
+
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=[
+            prompt,
+            types.Part.from_bytes(data=img_bytes, mime_type="image/png")
+        ],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=SegmentationLabels,  # Pydantic models are supported natively
+        ),
     )
-    response = model.generate_content([prompt, img])
-    # Convert JSON string into validated Pydantic object
+
     structured_output = SegmentationLabels.model_validate_json(response.text)
     return structured_output
 
-
 def image_label_generator_fish_invert(image_path: str, prompt: str = FISH_SLATE_IMAGE_INSTRUCTIONS):
     img = PIL.Image.open(image_path)
-    model = genai.GenerativeModel(
-        model_name=MODEL,
-        generation_config={
-            "response_mime_type": "application/json",
-            "response_schema": SegmentationLabelsFishInvert,
-        }
+
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format=img.format or "PNG")
+    img_bytes = img_byte_arr.getvalue()
+
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=[
+            prompt,
+            types.Part.from_bytes(data=img_bytes, mime_type="image/png")
+        ],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=SegmentationLabelsFishInvert,
+        ),
     )
-    response = model.generate_content([prompt, img])
-    # Convert JSON string into validated Pydantic object
+
     structured_output = SegmentationLabelsFishInvert.model_validate_json(response.text)
     return structured_output
+
 
